@@ -1,3 +1,9 @@
+## About This App
+
+This app is designed primarily as a companion for the **Hitster** card game, helping players quickly find and play music tracks.
+
+However, it also works as a general-purpose tool to **convert any Spotify link into a YouTube Music link**, making it useful even outside of the game.
+
 ## Note
 
 This app is currently under development and does **not** support music autoplay by default.
