@@ -3,31 +3,202 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR till YouTube Music</title>
+  <title>Spotify till YouTube Music</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       padding: 20px;
+      background-color: #121212; /* Spotify dark */
+      color: #ffffff;
     }
     video, canvas {
       width: 100%;
       max-width: 400px;
       margin: auto;
+      border-radius: 8px;
     }
     #reader {
       margin: auto;
       padding: 20px;
+      background-color: #282828; /* Spotify card background */
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 500px;
     }
     h1 {
       margin-bottom: 20px;
+      color: #1DB954; /* Spotify green */
+    }
+    #status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+      font-weight: bold;
+    }
+    .loading {
+      display: none;
+      margin: 20px auto;
+      border: 4px solid #333;
+      border-top: 4px solid #1DB954;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success {
+      background-color: rgba(29, 185, 84, 0.2); /* Spotify green with transparency */
+      color: #1DB954;
+      border: 1px solid #1DB954;
+    }
+    .error {
+      background-color: rgba(255, 55, 55, 0.2);
+      color: #ff3737;
+      border: 1px solid #ff3737;
+    }
+    .info {
+      background-color: rgba(30, 215, 96, 0.1);
+      color: #ffffff;
+      border: 1px solid #555;
+    }
+    #manualInput {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #282828;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    input[type="text"] {
+      width: 75%;
+      padding: 12px;
+      margin: 15px 0;
+      border: none;
+      background-color: #333;
+      color: white;
+      border-radius: 4px;
+    }
+    input::placeholder {
+      color: #aaa;
+    }
+    button {
+      background-color: #1DB954;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #18a449;
+    }
+    h3 {
+      color: #1DB954;
+      margin-bottom: 5px;
+    }
+    .song-info {
+      display: none;
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #333;
+      border-radius: 8px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hidden {
+      display: none;
+    }
+    .switch-container {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+      margin: 0 10px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #444;
+      transition: .4s;
+      border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #1DB954;
+    }
+    input:checked + .slider:before {
+      transform: translateX(30px);
+    }
+    .youtube-button {
+      cursor: pointer;
+      display: block;
+      margin: 20px auto;
+      padding: 14px 20px;
+      background-color: #FF0000;
+      color: white;
+      border-radius: 30px;
+      text-decoration: none;
+      width: 250px;
+      font-weight: bold;
+      font-size: 18px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
     }
   </style>
 </head>
 <body>
-  <h1>Scanna QR-kod med Spotify-länk</h1>
+  <h1>Spotify till YouTube Music</h1>
   <div id="reader"></div>
+  <div id="loadingSpinner" class="loading"></div>
+  <div id="status"></div>
+  
+  <!-- Autoplay toggle removed -->
+
+  <div id="ytButtonContainer"></div>
+
+  <div id="manualInput">
+    <h3>Eller klistra in Spotify-länk</h3>
+    <input type="text" id="manualUrl" placeholder="https://open.spotify.com/track/...">
+    <button onclick="convertManualUrl()">Konvertera</button>
+  </div>
 
   <form id="spotifyForm" method="POST" action="/convert">
     <input type="hidden" name="spotify_url" id="spotify_url">
@@ -36,47 +207,138 @@
   <script>
     let isFormSubmitted = false;
     const html5QrCode = new Html5Qrcode("reader");
+    const statusDiv = document.getElementById('status');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    // Autoplay toggle borttagen
+    const ytButtonContainer = document.getElementById('ytButtonContainer');
 
     function startScanner() {
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         onScanSuccess
-      ).catch(err => console.error("Fel vid start av QR-läsare:", err));
+      ).catch(err => {
+        console.error("Fel vid start av QR-läsare:", err);
+        showStatus("Kunde inte starta kameran. Försök med den manuella inmatningen istället.", "error");
+      });
     }
 
     function stopScanner() {
       html5QrCode.stop().catch(err => console.warn("QR-läsaren kunde inte stoppas:", err));
     }
 
-    function onScanSuccess(decodedText) {
+    function showStatus(message, type) {
+      statusDiv.textContent = message;
+      statusDiv.className = type;
+      statusDiv.style.display = "block";
+      
+      // Om det inte är ett felmeddelande, göm efter en stund
+      if (type !== "error") {
+        setTimeout(() => {
+          statusDiv.style.display = "none";
+        }, 5000);
+      }
+    }
+
+    // Funktion för att visa YouTube Music-knapp
+    function openYouTubeMusic(url) {
+      // Rensa tidigare knappar
+      while (ytButtonContainer.firstChild) {
+        ytButtonContainer.removeChild(ytButtonContainer.firstChild);
+      }
+      
+      // Skapa ny knapp
+      const linkElement = document.createElement('a');
+      linkElement.href = url;
+      linkElement.textContent = 'Spela i YouTube Music';
+      linkElement.className = 'youtube-button';
+      linkElement.target = '_self'; // Öppna i samma flik
+      ytButtonContainer.appendChild(linkElement);
+      
+      // Ta bort knappen efter en stund om den inte används
+      setTimeout(() => {
+        if (ytButtonContainer.contains(linkElement)) {
+          ytButtonContainer.removeChild(linkElement);
+        }
+      }, 30000); // Visar knappen i 30 sekunder
+    }
+
+    function processSpotifyUrl(spotifyUrl) {
       if (isFormSubmitted) return;
       isFormSubmitted = true;
-      stopScanner();
+      
+      loadingSpinner.style.display = "block";
+      showStatus("Konverterar länk...", "info");
 
       fetch('/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `spotify_url=${encodeURIComponent(decodedText)}`
+        body: `spotify_url=${encodeURIComponent(spotifyUrl)}`
       })
-      .then(response => response.text())
-      .then(youtubeUrl => {
-        window.open(youtubeUrl, '_blank');
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Servern svarade med ett fel');
+        }
+        return response.json();
       })
-      .catch(error => console.error('Fel vid serveranrop:', error));
+      .then(data => {
+        loadingSpinner.style.display = "none";
+        
+        if (data.direct_link) {
+          showStatus(`Konvertering slutförd`, "success");
+          openYouTubeMusic(data.youtube_url);
+        } else {
+          showStatus(`Konvertering slutförd`, "success");
+          openYouTubeMusic(data.youtube_url);
+        }
+        
+        // Återställ för att tillåta ny scanning
+        setTimeout(() => {
+          isFormSubmitted = false;
+          if (!html5QrCode._isScanning) {
+            startScanner();
+          }
+        }, 3000);
+      })
+      .catch(error => {
+        loadingSpinner.style.display = "none";
+        console.error('Fel vid serveranrop:', error);
+        showStatus("Något gick fel. Försök igen.", "error");
+        isFormSubmitted = false;
+      });
     }
+
+    function onScanSuccess(decodedText) {
+      stopScanner();
+      processSpotifyUrl(decodedText);
+    }
+
+    function convertManualUrl() {
+      const manualUrl = document.getElementById('manualUrl').value.trim();
+      if (!manualUrl) {
+        showStatus("Ange en giltig Spotify-länk", "error");
+        return;
+      }
+      
+      if (!manualUrl.includes('spotify.com')) {
+        showStatus("Ange en giltig Spotify-länk", "error");
+        return;
+      }
+      
+      processSpotifyUrl(manualUrl);
+    }
+
+    // Autoplay inställningar borttagna
 
     // Starta scannern första gången
     startScanner();
 
-    // Starta om scannern när användaren kommer tillbaka till sidan
+    // Starta om scannern när användaren kommer tillbaka till sidan eller fokuserar den
     window.onfocus = () => {
-      if (!html5QrCode._isScanning) {
-        isFormSubmitted = false;
+      if (!isFormSubmitted && !html5QrCode._isScanning) {
         startScanner();
       }
     };
   </script>
 </body>
 </html>
-
