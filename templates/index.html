@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR till YouTube Music</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    video, canvas {
+      width: 100%;
+      max-width: 400px;
+      margin: auto;
+    }
+    #reader {
+      margin: auto;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Scanna QR-kod med Spotify-länk</h1>
+  <div id="reader"></div>
+
+  <form id="spotifyForm" method="POST" action="/convert">
+    <input type="hidden" name="spotify_url" id="spotify_url">
+  </form>
+
+  <script>
+    let isFormSubmitted = false;
+    const html5QrCode = new Html5Qrcode("reader");
+
+    function startScanner() {
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess
+      ).catch(err => console.error("Fel vid start av QR-läsare:", err));
+    }
+
+    function stopScanner() {
+      html5QrCode.stop().catch(err => console.warn("QR-läsaren kunde inte stoppas:", err));
+    }
+
+    function onScanSuccess(decodedText) {
+      if (isFormSubmitted) return;
+      isFormSubmitted = true;
+      stopScanner();
+
+      fetch('/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `spotify_url=${encodeURIComponent(decodedText)}`
+      })
+      .then(response => response.text())
+      .then(youtubeUrl => {
+        window.open(youtubeUrl, '_blank');
+      })
+      .catch(error => console.error('Fel vid serveranrop:', error));
+    }
+
+    // Starta scannern första gången
+    startScanner();
+
+    // Starta om scannern när användaren kommer tillbaka till sidan
+    window.onfocus = () => {
+      if (!html5QrCode._isScanning) {
+        isFormSubmitted = false;
+        startScanner();
+      }
+    };
+  </script>
+</body>
+</html>
+

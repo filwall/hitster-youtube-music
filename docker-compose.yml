@@ -1,0 +1,9 @@
+services:
+  hitster:
+    build: .
+    ports:
+      - "5001:5001"
+    environment:
+      SPOTIFY_CLIENT_ID: your_id
+      SPOTIFY_CLIENT_SECRET: secret
+
